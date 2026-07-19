@@ -2,7 +2,7 @@ const form = document.querySelector('#prompt-form');
 const input = document.querySelector('#message');
 const cards = {
   openai: document.querySelector('#openai-card'),
-  anthropic: document.querySelector('#anthropic-card'),
+  openrouter: document.querySelector('#openrouter-card'),
 };
 
 function setCardState(id, status, text) {

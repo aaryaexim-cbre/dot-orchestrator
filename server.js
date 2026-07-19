@@ -32,30 +32,28 @@ const aiServices = [
     },
   },
   {
-    id: 'anthropic',
-    name: 'Anthropic',
-    envKey: 'ANTHROPIC_API_KEY',
+    id: 'openrouter',
+    name: 'OpenRouter',
+    envKey: 'OPENROUTER_API_KEY',
     async request(message) {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': process.env.ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
+          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
         },
         body: JSON.stringify({
-          model: process.env.ANTHROPIC_MODEL || 'claude-3-haiku-20240307',
-          max_tokens: 500,
+          model: process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.3-70b-instruct:free',
           messages: [{ role: 'user', content: message }],
         }),
       });
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(data.error?.message || `Anthropic request failed with status ${response.status}`);
+        throw new Error(data.error?.message || `OpenRouter request failed with status ${response.status}`);
       }
 
-      return data.content?.map((block) => block.text).filter(Boolean).join('\n') || 'No text response returned.';
+      return data.choices?.[0]?.message?.content || 'No text response returned.';
     },
   },
 ];
