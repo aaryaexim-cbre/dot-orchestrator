@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Response Orchestrator</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="hero">
+        <p class="eyebrow">Side-by-side AI orchestration</p>
+        <h1>Ask once. Compare two AI responses.</h1>
+        <p class="subtitle">Submit a message and the app calls OpenAI and Anthropic simultaneously, then displays both answers in two columns.</p>
+      </section>
+
+      <form class="prompt-form" id="prompt-form">
+        <label for="message">Your message</label>
+        <div class="input-row">
+          <input id="message" name="message" type="text" placeholder="Explain quantum computing in one paragraph" autocomplete="off" />
+          <button type="submit">Send to both</button>
+        </div>
+      </form>
+
+      <section class="response-grid" aria-live="polite">
+        <article class="response-card" id="openai-card">
+          <div class="card-header">
+            <h2>OpenAI</h2>
+            <span class="status idle">idle</span>
+          </div>
+          <div class="response-body">Submit a message to see this model response.</div>
+        </article>
+        <article class="response-card" id="anthropic-card">
+          <div class="card-header">
+            <h2>Anthropic</h2>
+            <span class="status idle">idle</span>
+          </div>
+          <div class="response-body">Submit a message to see this model response.</div>
+        </article>
+      </section>
+    </main>
+    <script src="/app.js" defer></script>
+  </body>
+</html>
