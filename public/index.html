@@ -9,16 +9,16 @@
   <body>
     <main class="app-shell">
       <section class="hero">
-        <p class="eyebrow">Side-by-side AI orchestration</p>
-        <h1>Ask once. Compare two AI responses.</h1>
-        <p class="subtitle">Submit a message and the app calls OpenAI and OpenRouter simultaneously, then displays both answers in two columns.</p>
+        <p class="eyebrow">Side-by-side AI comparison</p>
+        <h1>Ask once. Compare assumptions.</h1>
+        <p class="subtitle">Two models answer the same question, then a synthesis card highlights where their assumptions align, conflict, or need one better follow-up.</p>
       </section>
 
       <form class="prompt-form" id="prompt-form">
-        <label for="message">Your message</label>
+        <label for="message">Your question</label>
         <div class="input-row">
-          <input id="message" name="message" type="text" placeholder="Explain quantum computing in one paragraph" autocomplete="off" />
-          <button type="submit">Send to both</button>
+          <input id="message" name="message" type="text" placeholder="What is the best way to prioritize this product roadmap?" autocomplete="off" />
+          <button type="submit" id="submit-button">Run comparison</button>
         </div>
       </form>
 
@@ -28,15 +28,23 @@
             <h2>OpenAI</h2>
             <span class="status idle">idle</span>
           </div>
-          <div class="response-body">Submit a message to see this model response.</div>
+          <dl class="structured-response"></dl>
         </article>
         <article class="response-card" id="openrouter-card">
           <div class="card-header">
             <h2>OpenRouter</h2>
             <span class="status idle">idle</span>
           </div>
-          <div class="response-body">Submit a message to see this model response.</div>
+          <dl class="structured-response"></dl>
         </article>
+      </section>
+
+      <section class="insight-card" id="insight-card" aria-live="polite">
+        <div class="card-header">
+          <h2>Insight Card</h2>
+          <span class="status idle">idle</span>
+        </div>
+        <dl class="structured-response"></dl>
       </section>
     </main>
     <script src="/app.js" defer></script>
