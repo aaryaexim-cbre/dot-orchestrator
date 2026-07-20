@@ -8,47 +8,30 @@ const PUBLIC_DIR = join(process.cwd(), 'public');
 const RESPONSE_FIELDS = ['verdict', 'confidence', 'reasoning'];
 const SYNTHESIS_FIELDS = ['agreement', 'conflict', 'missing_information', 'next_best_question'];
 
-const aiServices = [
-  {
-    id: 'openai',
-    name: 'OpenAI',
-    envKey: 'OPENAI_API_KEY',
-    async request(messages) {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-          messages,
-          temperature: 0,
-          response_format: { type: 'json_object' },
-        }),
-      });
-      const data = await response.json().catch(() => ({}));
+const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 
-      if (!response.ok) {
-        throw new Error(data.error?.message || `OpenAI request failed with status ${response.status}`);
-      }
+function getOpenRouterModel(envModelKey, fallback) {
+  return process.env[envModelKey] || fallback;
+}
 
-      return data.choices?.[0]?.message?.content || '';
-    },
-  },
-  {
-    id: 'openrouter',
-    name: 'OpenRouter',
+function createOpenRouterService({ id, modelEnvKey, fallbackModel }) {
+  return {
+    id,
+    name: `OpenRouter: ${getOpenRouterModel(modelEnvKey, fallbackModel)}`,
     envKey: 'OPENROUTER_API_KEY',
+    modelEnvKey,
+    fallbackModel,
     async request(messages) {
-      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      const model = getOpenRouterModel(modelEnvKey, fallbackModel);
+      const response = await fetch(OPENROUTER_API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
         },
         body: JSON.stringify({
-          model: process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.3-70b-instruct:free',
+          model,
           messages,
           temperature: 0,
           response_format: { type: 'json_object' },
@@ -57,12 +40,63 @@ const aiServices = [
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(data.error?.message || `OpenRouter request failed with status ${response.status}`);
+        const message = data.error?.message || `OpenRouter request failed with status ${response.status}`;
+        throw new Error(`OpenRouter model ${model} failed: ${message}`);
       }
 
       return data.choices?.[0]?.message?.content || '';
     },
-  },
+  };
+}
+
+function getGeminiModel() {
+  return process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+}
+
+function createGeminiService() {
+  return {
+    id: 'gemini-b',
+    name: `Gemini: ${getGeminiModel()}`,
+    envKey: 'GEMINI_API_KEY',
+    async request(messages) {
+      const model = getGeminiModel();
+      const [systemMessage, ...conversationMessages] = messages;
+      const response = await fetch(`${GEMINI_API_URL}/${encodeURIComponent(model)}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [{ text: systemMessage.content }],
+          },
+          contents: conversationMessages.map((message) => ({
+            role: message.role === 'model' ? 'model' : 'user',
+            parts: [{ text: message.content }],
+          })),
+          generationConfig: {
+            temperature: 0,
+            responseMimeType: 'application/json',
+          },
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const message = data.error?.message || `Gemini request failed with status ${response.status}`;
+        throw new Error(`Gemini model ${model} failed: ${message}`);
+      }
+
+      return data.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('') || '';
+    },
+  };
+}
+
+const aiServices = [
+  createOpenRouterService({
+    id: 'openrouter-a',
+    modelEnvKey: 'OPENROUTER_MODEL_A',
+    fallbackModel: 'deepseek/deepseek-r1:free',
+  }),
+  createGeminiService(),
 ];
 
 function sendJson(res, statusCode, payload) {
