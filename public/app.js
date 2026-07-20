@@ -3,7 +3,7 @@ const input = document.querySelector('#message');
 const submitButton = document.querySelector('#submit-button');
 const insightCard = document.querySelector('#insight-card');
 const cards = {
-  'openrouter-a': document.querySelector('#openrouter-a-card'),
+  'openai-a': document.querySelector('#openrouter-a-card'),
   'openrouter-b': document.querySelector('#openrouter-b-card'),
 };
 

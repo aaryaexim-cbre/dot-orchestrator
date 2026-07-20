@@ -4,11 +4,28 @@ import { extname, join, normalize } from 'node:path';
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = join(process.cwd(), 'public');
+const REQUEST_TIMEOUT_MS = 30000;
 
 const RESPONSE_FIELDS = ['verdict', 'confidence', 'reasoning'];
 const SYNTHESIS_FIELDS = ['agreement', 'conflict', 'missing_information', 'next_best_question'];
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
+
+async function fetchWithTimeout(url, options, timeoutMs) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      throw new Error(`Request timed out after ${timeoutMs / 1000} seconds.`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 function getOpenRouterModel(envModelKey, fallback) {
   return process.env[envModelKey] || fallback;
@@ -23,36 +40,84 @@ function createOpenRouterService({ id, modelEnvKey, fallbackModel }) {
     fallbackModel,
     async request(messages) {
       const model = getOpenRouterModel(modelEnvKey, fallbackModel);
-      const response = await fetch(OPENROUTER_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+      console.log(`[OpenRouter] Calling model: ${model}`);
+      const response = await fetchWithTimeout(
+        OPENROUTER_API_URL,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model,
+            messages,
+            temperature: 0,
+            response_format: { type: 'json_object' },
+          }),
         },
-        body: JSON.stringify({
-          model,
-          messages,
-          temperature: 0,
-          response_format: { type: 'json_object' },
-        }),
-      });
+        REQUEST_TIMEOUT_MS
+      );
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
         const message = data.error?.message || `OpenRouter request failed with status ${response.status}`;
+        console.log(`[OpenRouter] Error: ${message}`);
         throw new Error(`OpenRouter model ${model} failed: ${message}`);
       }
 
+      console.log(`[OpenRouter] Success: ${model}`);
+      return data.choices?.[0]?.message?.content || '';
+    },
+  };
+}
+
+function createOpenAIService({ id, modelEnvKey, fallbackModel }) {
+  return {
+    id,
+    name: process.env[modelEnvKey] || fallbackModel,
+    envKey: 'OPENAI_API_KEY',
+    modelEnvKey,
+    fallbackModel,
+    async request(messages) {
+      const model = process.env[modelEnvKey] || fallbackModel;
+      console.log(`[OpenAI] Calling model: ${model}`);
+      const response = await fetchWithTimeout(
+        OPENAI_API_URL,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model,
+            messages,
+            response_format: { type: 'json_object' },
+            reasoning_effort: 'low',
+          }),
+        },
+        REQUEST_TIMEOUT_MS
+      );
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const message = data.error?.message || `OpenAI request failed with status ${response.status}`;
+        console.log(`[OpenAI] Error: ${message}`);
+        throw new Error(`OpenAI model ${model} failed: ${message}`);
+      }
+
+      console.log(`[OpenAI] Success: ${model}`);
       return data.choices?.[0]?.message?.content || '';
     },
   };
 }
 
 const aiServices = [
-  createOpenRouterService({
-    id: 'openrouter-a',
-    modelEnvKey: 'OPENROUTER_MODEL_A',
-    fallbackModel: 'deepseek/deepseek-r1:free',
+  createOpenAIService({
+    id: 'openai-a',
+    modelEnvKey: 'OPENAI_MODEL',
+    fallbackModel: 'gpt-5.6-terra',
   }),
   createOpenRouterService({
     id: 'openrouter-b',
@@ -170,6 +235,8 @@ async function handleCompare(req, res) {
       return;
     }
 
+    console.log(`[Compare] New question: ${prompt}`);
+
     const results = await Promise.allSettled(
       aiServices.map(async (service) => ({
         id: service.id,
@@ -190,14 +257,20 @@ async function handleCompare(req, res) {
 
     if (successfulResponses.length === aiServices.length) {
       try {
+        console.log('[Synthesis] Both models succeeded, running synthesis...');
         payload.synthesis = { status: 'success', ...(await runSynthesis(prompt, successfulResponses)) };
+        console.log('[Synthesis] Complete.');
       } catch (error) {
+        console.log(`[Synthesis] Error: ${error.message}`);
         payload.synthesis = { status: 'error', error: error.message || 'Synthesis failed.' };
       }
+    } else {
+      console.log('[Synthesis] Skipped, not all models succeeded.');
     }
 
     sendJson(res, 200, payload);
   } catch (error) {
+    console.log(`[Compare] Unexpected error: ${error.message}`);
     sendJson(res, 500, { error: error.message || 'Unexpected server error.' });
   }
 }
