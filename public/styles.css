@@ -37,21 +37,24 @@ h1 {
 }
 
 .subtitle {
-  max-width: 720px;
+  max-width: 760px;
   margin: 0 auto;
   color: #566173;
   font-size: 1.1rem;
 }
 
 .prompt-form,
-.response-card {
+.response-card,
+.insight-card {
   border: 1px solid #dce4f2;
   border-radius: 24px;
   background: white;
   box-shadow: 0 24px 80px rgba(33, 43, 84, 0.09);
 }
 
-.prompt-form {
+.prompt-form,
+.response-card,
+.insight-card {
   padding: 24px;
 }
 
@@ -86,6 +89,11 @@ button {
   cursor: pointer;
 }
 
+button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
 .response-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -95,7 +103,10 @@ button {
 
 .response-card {
   min-height: 320px;
-  padding: 24px;
+}
+
+.insight-card {
+  margin-top: 24px;
 }
 
 .card-header {
@@ -132,8 +143,41 @@ h2 { margin: 0; }
   color: #3730a3;
 }
 
-.response-body {
-  margin-top: 20px;
+.structured-response {
+  margin: 22px 0 0;
+}
+
+.field-block + .field-block {
+  margin-top: 18px;
+}
+
+dt {
+  color: #5a6680;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+dd {
+  margin: 6px 0 0;
+  color: #273349;
+  line-height: 1.6;
+}
+
+summary {
+  display: inline-flex;
+  border: 1px solid #cfd8eb;
+  border-radius: 999px;
+  padding: 6px 12px;
+  color: #5264ff;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+details p,
+.state-message {
+  margin: 12px 0 0;
   color: #273349;
   line-height: 1.6;
   white-space: pre-wrap;
