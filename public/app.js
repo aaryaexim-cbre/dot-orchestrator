@@ -3,8 +3,8 @@ const input = document.querySelector('#message');
 const submitButton = document.querySelector('#submit-button');
 const insightCard = document.querySelector('#insight-card');
 const cards = {
-  openai: document.querySelector('#openai-card'),
-  openrouter: document.querySelector('#openrouter-card'),
+  'openrouter-a': document.querySelector('#openrouter-a-card'),
+  'openrouter-b': document.querySelector('#openrouter-b-card'),
 };
 
 let activeRequestId = 0;
@@ -77,6 +77,11 @@ function setCardMessage(card, status, message) {
 function setModelCard(id, result) {
   const card = cards[id];
   if (!card) return;
+
+  const heading = card.querySelector('h2');
+  if (result.name && heading) {
+    heading.textContent = result.name;
+  }
 
   if (result.status === 'error') {
     setCardMessage(card, 'error', result.error || 'This model could not return an answer.');

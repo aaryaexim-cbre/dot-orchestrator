@@ -8,47 +8,29 @@ const PUBLIC_DIR = join(process.cwd(), 'public');
 const RESPONSE_FIELDS = ['verdict', 'confidence', 'reasoning'];
 const SYNTHESIS_FIELDS = ['agreement', 'conflict', 'missing_information', 'next_best_question'];
 
-const aiServices = [
-  {
-    id: 'openai',
-    name: 'OpenAI',
-    envKey: 'OPENAI_API_KEY',
-    async request(messages) {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-          messages,
-          temperature: 0,
-          response_format: { type: 'json_object' },
-        }),
-      });
-      const data = await response.json().catch(() => ({}));
+const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
-      if (!response.ok) {
-        throw new Error(data.error?.message || `OpenAI request failed with status ${response.status}`);
-      }
+function getOpenRouterModel(envModelKey, fallback) {
+  return process.env[envModelKey] || fallback;
+}
 
-      return data.choices?.[0]?.message?.content || '';
-    },
-  },
-  {
-    id: 'openrouter',
-    name: 'OpenRouter',
+function createOpenRouterService({ id, modelEnvKey, fallbackModel }) {
+  return {
+    id,
+    name: getOpenRouterModel(modelEnvKey, fallbackModel),
     envKey: 'OPENROUTER_API_KEY',
+    modelEnvKey,
+    fallbackModel,
     async request(messages) {
-      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      const model = getOpenRouterModel(modelEnvKey, fallbackModel);
+      const response = await fetch(OPENROUTER_API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
         },
         body: JSON.stringify({
-          model: process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.3-70b-instruct:free',
+          model,
           messages,
           temperature: 0,
           response_format: { type: 'json_object' },
@@ -57,12 +39,26 @@ const aiServices = [
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(data.error?.message || `OpenRouter request failed with status ${response.status}`);
+        const message = data.error?.message || `OpenRouter request failed with status ${response.status}`;
+        throw new Error(`OpenRouter model ${model} failed: ${message}`);
       }
 
       return data.choices?.[0]?.message?.content || '';
     },
-  },
+  };
+}
+
+const aiServices = [
+  createOpenRouterService({
+    id: 'openrouter-a',
+    modelEnvKey: 'OPENROUTER_MODEL_A',
+    fallbackModel: 'deepseek/deepseek-r1:free',
+  }),
+  createOpenRouterService({
+    id: 'openrouter-b',
+    modelEnvKey: 'OPENROUTER_MODEL_B',
+    fallbackModel: 'qwen/qwen3-coder:free',
+  }),
 ];
 
 function sendJson(res, statusCode, payload) {
